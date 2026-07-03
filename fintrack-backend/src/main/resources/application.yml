@@ -1,27 +1,28 @@
-server:
-  port: 8080
-
 spring:
   application:
     name: fintrack-backend
+
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:fintrack_db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://thomas.proxy.rlwy.net:45025/railway?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: Karuppu@2006
+    password: OGVwneHsovArSDiTpmGLIDVSgQUBCTpt
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: false
+
+    show-sql: true
+
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+
+server:
+  port: 8080
 
 fintrack:
   security:
     jwt:
-      # Base64 encoded secret for JWT validation
-      # HMAC-SHA 256 requires at least 256 bits (32 bytes) of key length
       secret: dGhlLXByZW1pdW0tcHJvZHVjdGlvbi1yZWFkeS1maW50cmFjay1wcm8tc2VjdXJpdHktamt0LXNlY3JldC1rZXktdmFsdWUtMjAyNg==
-      expiration-ms: 86400000 # 24 Hours
+      expiration-ms: 86400000
