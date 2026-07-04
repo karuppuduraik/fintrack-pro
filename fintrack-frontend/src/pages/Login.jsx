@@ -47,18 +47,7 @@ const Login = () => {
     }
   };
 
-  const handleDemoLogin = () => {
-    // Scaffold a rich mock user for testing without running backend
-    const mockUser = {
-      id: 1,
-      username: 'Karuppudurai',
-      email: 'karuppudurai@example.com',
-      role: 'ADMIN'
-    };
-    login(mockUser, 'mock-jwt-token-value-xyz');
-    navigate('/dashboard');
-  };
-
+  
   return (
     <GlassCard className="shadow-2xl border border-white/20 dark:border-slate-800" hoverable={false}>
       <div className="text-center mb-6">
@@ -145,17 +134,7 @@ const Login = () => {
         </Button>
       </form>
 
-      {/* Demo Login Option */}
-      <div className="relative flex py-3 items-center">
-        <div className="flex-grow border-t border-slate-200/40 dark:border-slate-850" />
-        <span className="flex-shrink mx-4 text-xs font-semibold text-slate-400">or preview dashboard</span>
-        <div className="flex-grow border-t border-slate-200/40 dark:border-slate-850" />
-      </div>
-
-      <Button variant="secondary" onClick={handleDemoLogin} className="w-full">
-        Launch Demo Sandbox
-      </Button>
-
+     
       <div className="text-center mt-6">
         <p className="text-xs text-slate-500 dark:text-slate-400">
           New to FinTrack Pro?{' '}

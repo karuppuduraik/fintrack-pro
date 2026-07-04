@@ -14,32 +14,23 @@ import {
   CategoryRounded
 } from '@mui/icons-material';
 import api from '../services/api';
+import { useAuth } from "../context/AuthContext";
 
 const Dashboard = () => {
+
+  const { user } = useAuth();
   // State for dashboard calculations
   const [stats, setStats] = useState({
-    income: 75000,
-    expense: 38500,
-    savings: 20000,
-    balance: 36500,
-  });
+    income:0,
+    expense:0,
+    savings:0,
+    balance:0
+});
 
-  const [transactions, setTransactions] = useState([
-    { id: 1, type: 'EXPENSE', amount: 15000, category: 'Rent', date: '2026-07-01', description: 'Monthly Apartment Rent' },
-    { id: 2, type: 'INCOME', amount: 75000, category: 'Salary', date: '2026-07-01', description: 'Tech Corp Monthly Salary' },
-    { id: 3, type: 'EXPENSE', amount: 6500, category: 'Food', date: '2026-07-02', description: 'Gourmet Dine-in & Groceries' },
-    { id: 4, type: 'EXPENSE', amount: 5800, category: 'Shopping', date: '2026-07-02', description: 'Summer Apparel clothing' },
-    { id: 5, type: 'EXPENSE', amount: 2800, category: 'Fuel', date: '2026-07-02', description: 'Petrol refill' },
-    { id: 6, type: 'EXPENSE', amount: 4500, category: 'Education', date: '2026-07-03', description: 'Online Coding Course subscription' },
-  ]);
 
-  const [budgets, setBudgets] = useState([
-    { category: 'Rent', limit: 15000, spent: 15000, color: '#3b82f6' },
-    { category: 'Food', limit: 10000, spent: 6500, color: '#10b981' },
-    { category: 'Shopping', limit: 8000, spent: 5800, color: '#f59e0b' },
-    { category: 'Fuel', limit: 4000, spent: 2800, color: '#ec4899' },
-    { category: 'Education', limit: 6000, spent: 4500, color: '#8b5cf6' },
-  ]);
+const [transactions, setTransactions] = useState([]);
+
+const [budgets, setBudgets] = useState([]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newTx, setNewTx] = useState({
@@ -76,25 +67,10 @@ const Dashboard = () => {
     }).format(val);
   };
 
-  const chartData = [
-    { name: 'Mon', Income: 0, Expense: 15000 },
-    { name: 'Tue', Income: 75000, Expense: 2800 },
-    { name: 'Wed', Income: 0, Expense: 12300 },
-    { name: 'Thu', Income: 0, Expense: 4500 },
-    { name: 'Fri', Income: 0, Expense: 3900 },
-    { name: 'Sat', Income: 0, Expense: 0 },
-    { name: 'Sun', Income: 0, Expense: 0 },
-  ];
+  const chartData = [];
 
   // Pie chart breakdown
-  const pieData = [
-    { name: 'Rent', value: 15000, color: '#3b82f6' },
-    { name: 'Food', value: 6500, color: '#10b981' },
-    { name: 'Shopping', value: 5800, color: '#f59e0b' },
-    { name: 'Education', value: 4500, color: '#8b5cf6' },
-    { name: 'Fuel', value: 2800, color: '#ec4899' },
-    { name: 'Others', value: 38500 - 15000 - 6500 - 5800 - 4500 - 2800, color: '#64748b' },
-  ];
+  const pieData = [];
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
@@ -159,7 +135,9 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-400">Welcome to your secure wealth hub</h3>
-          <p className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Karuppudurai's Workspace</p>
+          <p className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+    {user?.username || "Guest"}'s Workspace
+</p>
         </div>
         <Button onClick={() => setIsAddModalOpen(true)} className="shadow-lg hover:shadow-brand-500/20">
           <AddRounded className="mr-1.5" /> New Transaction
