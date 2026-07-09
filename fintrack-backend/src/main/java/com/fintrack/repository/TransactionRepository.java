@@ -60,5 +60,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("end") LocalDate end
     );
 
+    @Query("SELECT SUM(t.amount) FROM Transaction t WHERE t.user = :user AND t.type = :type AND t.date = :date")
+    BigDecimal sumAmountByUserAndTypeAndDate(
+            @Param("user") User user,
+            @Param("type") TransactionType type,
+            @Param("date") LocalDate date
+    );
+
     List<Transaction> findByUserAndDateBetweenOrderByDateDesc(User user, LocalDate start, LocalDate end);
 }

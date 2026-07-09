@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
 import GlassCard from '../components/GlassCard';
 import Button from '../components/Button';
@@ -16,25 +16,102 @@ const Reports = () => {
   const [startDate, setStartDate] = useState('2026-07-01');
   const [endDate, setEndDate] = useState('2026-07-31');
   const [exporting, setExporting] = useState({ pdf: false, excel: false, csv: false });
+  const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(val);
+    }).format(num);
   };
 
-  // Mock charts data based on filters
-  const mockHistoricalData = [
-    { period: 'Jan', Income: 65000, Expense: 34000 },
-    { period: 'Feb', Income: 70000, Expense: 38000 },
-    { period: 'Mar', Income: 75000, Expense: 42000 },
-    { period: 'Apr', Income: 72000, Expense: 41000 },
-    { period: 'May', Income: 75000, Expense: 39500 },
-    { period: 'Jun', Income: 80000, Expense: 45000 },
-    { period: 'Jul', Income: 75000, text: 'Current', Expense: 38500 },
-  ];
+  // Fetch real transaction ledger and aggregate by day/month in the selected period
+  useEffect(() => {
+    const fetchAndAggregateData = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/transactions', {
+          params: { size: 10000, sortBy: 'date', sortDir: 'ASC' }
+        });
+        const allTransactions = response.data?.content || [];
+        
+        // Filter transactions within selected range
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        const filtered = allTransactions.filter(t => {
+          const tDate = new Date(t.date);
+          return tDate >= start && tDate <= end;
+        });
+
+        // Group by month
+        const monthsMap = {};
+        
+        // Helper to get all months between start and end
+        let current = new Date(start.getFullYear(), start.getMonth(), 1);
+        const last = new Date(end.getFullYear(), end.getMonth(), 1);
+        
+        while (current <= last) {
+          const label = current.toLocaleString('default', { month: 'short', year: '2-digit' });
+          monthsMap[label] = { period: label, Income: 0, Expense: 0 };
+          current.setMonth(current.getMonth() + 1);
+        }
+
+        // Aggregate values
+        filtered.forEach(t => {
+          const tDate = new Date(t.date);
+          const label = tDate.toLocaleString('default', { month: 'short', year: '2-digit' });
+          if (monthsMap[label] === undefined) {
+            monthsMap[label] = { period: label, Income: 0, Expense: 0 };
+          }
+          const amount = Number(t.amount) || 0;
+          if (t.type === 'INCOME') {
+            monthsMap[label].Income += amount;
+          } else {
+            monthsMap[label].Expense += amount;
+          }
+        });
+
+        const aggregatedList = Object.values(monthsMap);
+        
+        // If date range is small (within a single month), group by Day instead of Month
+        if (aggregatedList.length <= 1) {
+          const daysMap = {};
+          let curDay = new Date(start);
+          while (curDay <= end) {
+            const label = curDay.toLocaleDateString('default', { day: '2-digit', month: 'short' });
+            daysMap[label] = { period: label, Income: 0, Expense: 0 };
+            curDay.setDate(curDay.getDate() + 1);
+          }
+
+          filtered.forEach(t => {
+            const tDate = new Date(t.date);
+            const label = tDate.toLocaleDateString('default', { day: '2-digit', month: 'short' });
+            if (daysMap[label]) {
+              const amount = Number(t.amount) || 0;
+              if (t.type === 'INCOME') {
+                daysMap[label].Income += amount;
+              } else {
+                daysMap[label].Expense += amount;
+              }
+            }
+          });
+          setChartData(Object.values(daysMap));
+        } else {
+          setChartData(aggregatedList);
+        }
+      } catch (err) {
+        console.error("Failed to load real transaction data for reports:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAndAggregateData();
+  }, [startDate, endDate]);
 
   const handleExport = async (format) => {
     setExporting((prev) => ({ ...prev, [format]: true }));
@@ -197,61 +274,74 @@ const Reports = () => {
       </GlassCard>
 
       {/* Visual Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Income vs Expenses Side-by-Side Bar Chart */}
-        <GlassCard className="flex flex-col h-[380px]">
-          <div>
-            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Annual Cashflow Analytics</h4>
-            <p className="text-xs text-slate-400">Year-to-date comparison</p>
-          </div>
-          <div className="flex-1 min-h-0 mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockHistoricalData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="period" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip
-                  formatter={(value) => formatCurrency(value)}
-                  contentStyle={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    color: '#fff'
-                  }}
-                />
-                <Legend verticalAlign="top" height={36} iconType="circle" />
-                <Bar dataKey="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Expense" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <GlassCard className="h-[380px] flex items-center justify-center animate-pulse bg-slate-100/50 dark:bg-slate-900/50">
+            <span className="text-sm font-semibold text-slate-400">Loading Cashflow Analytics...</span>
+          </GlassCard>
+          <GlassCard className="h-[380px] flex items-center justify-center animate-pulse bg-slate-100/50 dark:bg-slate-900/50">
+            <span className="text-sm font-semibold text-slate-400">Loading Savings Accrual...</span>
+          </GlassCard>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Income vs Expenses Side-by-Side Bar Chart */}
+          <GlassCard className="flex flex-col h-[380px]">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Annual Cashflow Analytics</h4>
+              <p className="text-xs text-slate-400">Ledger balance comparison</p>
+            </div>
+            <div className="flex-1 min-h-0 mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="period" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value)}
+                    contentStyle={{
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '12px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend verticalAlign="top" height={36} iconType="circle" />
+                  <Bar dataKey="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Expense" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </GlassCard>
 
-        {/* Line Chart trends */}
-        <GlassCard className="flex flex-col h-[380px]">
-          <div>
-            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Savings Accrual Trend</h4>
-            <p className="text-xs text-slate-400">YTD growth metrics</p>
-          </div>
-          <div className="flex-1 min-h-0 mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockHistoricalData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="period" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip
-                  formatter={(value) => formatCurrency(value)}
-                  contentStyle={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    color: '#fff'
-                  }}
-                />
-                <Line type="monotone" dataKey="Income" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-      </div>
+          {/* Line Chart trends */}
+          <GlassCard className="flex flex-col h-[380px]">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Cashflow Trend Line</h4>
+              <p className="text-xs text-slate-400">Period-based transaction curve</p>
+            </div>
+            <div className="flex-1 min-h-0 mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="period" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value)}
+                    contentStyle={{
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '12px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend verticalAlign="top" height={36} iconType="circle" />
+                  <Line type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                  <Line type="monotone" dataKey="Expense" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </GlassCard>
+        </div>
+      )}
     </div>
   );
 };

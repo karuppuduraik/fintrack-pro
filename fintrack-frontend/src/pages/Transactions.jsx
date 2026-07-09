@@ -14,18 +14,7 @@ import {
 import api from '../services/api';
 
 const Transactions = () => {
-  const [transactions, setTransactions] = useState([
-    { id: 1, type: 'EXPENSE', amount: 15000, category: 'Rent', date: '2026-07-01', description: 'Monthly Apartment Rent' },
-    { id: 2, type: 'INCOME', amount: 75000, category: 'Salary', date: '2026-07-01', description: 'Tech Corp Monthly Salary' },
-    { id: 3, type: 'EXPENSE', amount: 6500, category: 'Food', date: '2026-07-02', description: 'Gourmet Dine-in & Groceries' },
-    { id: 4, type: 'EXPENSE', amount: 5800, category: 'Shopping', date: '2026-07-02', description: 'Summer Apparel clothing' },
-    { id: 5, type: 'EXPENSE', amount: 2800, category: 'Fuel', date: '2026-07-02', description: 'Petrol refill' },
-    { id: 6, type: 'EXPENSE', amount: 4500, category: 'Education', date: '2026-07-03', description: 'Online Coding Course subscription' },
-    { id: 7, type: 'EXPENSE', amount: 2350, category: 'Medical', date: '2026-07-03', description: 'Pharmacy Prescription bill' },
-    { id: 8, type: 'EXPENSE', amount: 999, category: 'Internet', date: '2026-07-04', description: 'Gigabit Fiber broadband' },
-    { id: 9, type: 'EXPENSE', amount: 1450, category: 'Electricity', date: '2026-07-04', description: 'Utility Board Power invoice' },
-    { id: 10, type: 'EXPENSE', amount: 1800, category: 'Entertainment', date: '2026-07-04', description: 'Cinematic Movie tickets' },
-  ]);
+  const [transactions, setTransactions] = useState([]);
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
@@ -44,26 +33,42 @@ const Transactions = () => {
     description: '',
   });
 
+  const loadTx = async () => {
+    try {
+      const response = await api.get('/transactions', {
+        params: { 
+          page: page - 1, 
+          size: itemsPerPage, 
+          search: search.trim() || null, 
+          type: typeFilter === 'ALL' ? null : typeFilter, 
+          category: categoryFilter === 'ALL' ? null : categoryFilter 
+        }
+      });
+      const mapped = response.data.content.map(t => ({
+        id: t.id,
+        type: t.type,
+        amount: parseFloat(t.amount),
+        category: t.category ? t.category.name : 'Uncategorized',
+        date: t.date,
+        description: t.description
+      }));
+      setTransactions(mapped);
+    } catch (err) {
+      console.warn('API connection refused or bad request. Operating locally.');
+    }
+  };
+
   useEffect(() => {
-    const loadTx = async () => {
-      try {
-        const response = await api.get('/transactions', {
-          params: { page: page - 1, size: itemsPerPage, search, type: typeFilter, category: categoryFilter }
-        });
-        setTransactions(response.data.content);
-      } catch (err) {
-        console.warn('API connection refused. Operating locally.');
-      }
-    };
     loadTx();
   }, [page, search, typeFilter, categoryFilter]);
 
   const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(val);
+    }).format(num);
   };
 
   const handleOpenAdd = () => {
@@ -94,35 +99,41 @@ const Transactions = () => {
     if (!window.confirm('Delete this transaction?')) return;
     try {
       await api.delete(`/transactions/${id}`);
-    } catch (err) {}
-    setTransactions(transactions.filter((t) => t.id !== id));
+      loadTx();
+    } catch (err) {
+      setTransactions(transactions.filter((t) => t.id !== id));
+    }
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const amountNum = parseFloat(formData.amount);
     if (!amountNum || isNaN(amountNum)) return;
 
     const payload = {
-      ...formData,
       amount: amountNum,
+      type: formData.type,
+      categoryName: formData.category,
+      date: formData.date,
+      description: formData.description
     };
 
     if (editingTx) {
       // Edit
       try {
         await api.put(`/transactions/${editingTx.id}`, payload);
-      } catch (err) {}
-      setTransactions(
-        transactions.map((t) => (t.id === editingTx.id ? { ...t, ...payload } : t))
-      );
+        loadTx();
+      } catch (err) {
+        console.error(err);
+      }
     } else {
       // Add
-      const newId = Date.now();
       try {
         await api.post('/transactions', payload);
-      } catch (err) {}
-      setTransactions([{ id: newId, ...payload }, ...transactions]);
+        loadTx();
+      } catch (err) {
+        console.error(err);
+      }
     }
     setIsModalOpen(false);
   };
@@ -335,6 +346,7 @@ const Transactions = () => {
                 {editingTx ? 'Modify Transaction' : 'Create Transaction'}
               </h4>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
@@ -342,7 +354,7 @@ const Transactions = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
               {/* Type selection */}
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Type</label>
@@ -440,10 +452,10 @@ const Transactions = () => {
                 />
               </div>
 
-              <Button type="submit" className="w-full">
+              <Button onClick={handleSubmit} className="w-full">
                 {editingTx ? 'Apply Changes' : 'Create Entry'}
               </Button>
-            </form>
+            </div>
           </div>
         </div>
       )}

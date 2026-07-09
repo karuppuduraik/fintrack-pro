@@ -20,6 +20,8 @@ const MainLayout = () => {
         return 'Savings Goals';
       case '/reports':
         return 'Analytics & Reports';
+      case '/profile':
+        return 'Account Settings';
       default:
         return 'FinTrack Pro';
     }
@@ -43,7 +45,7 @@ const MainLayout = () => {
         <Navbar onMenuClick={() => setSidebarOpen(true)} title={pageTitle} />
 
         {/* Dynamic Page Views */}
-        <main className="flex-1 overflow-y-auto px-6 py-6 relative">
+        <main className="flex-1 overflow-y-auto px-6 py-6 relative z-0">
           <Outlet />
         </main>
       </div>

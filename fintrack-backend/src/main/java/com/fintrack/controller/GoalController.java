@@ -40,7 +40,7 @@ public class GoalController {
     @PutMapping("/{id}/contribute")
     @Operation(summary = "Verify and add savings contribution amount to target goal")
     public ResponseEntity<Goal> contributeToGoal(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody Map<String, BigDecimal> payload) {
         BigDecimal amount = payload.get("amount");
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -51,7 +51,7 @@ public class GoalController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete savings target goal")
-    public ResponseEntity<MessageResponse> deleteGoal(@PathVariable Long id) {
+    public ResponseEntity<MessageResponse> deleteGoal(@PathVariable("id") Long id) {
         goalService.deleteGoal(id);
         return ResponseEntity.ok(new MessageResponse("Savings target deleted successfully!"));
     }

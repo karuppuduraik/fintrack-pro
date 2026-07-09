@@ -26,8 +26,8 @@ public class ReportController {
     @GetMapping("/export/pdf")
     @Operation(summary = "Export ledger statement in PDF format")
     public ResponseEntity<InputStreamResource> exportPDF(
-            @RequestParam String startDate,
-            @RequestParam String endDate) {
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate) {
         LocalDate start = LocalDate.parse(startDate);
         LocalDate end = LocalDate.parse(endDate);
 
@@ -45,8 +45,8 @@ public class ReportController {
     @GetMapping("/export/excel")
     @Operation(summary = "Export ledger statement in Excel spreadsheet format")
     public ResponseEntity<InputStreamResource> exportExcel(
-            @RequestParam String startDate,
-            @RequestParam String endDate) {
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate) {
         LocalDate start = LocalDate.parse(startDate);
         LocalDate end = LocalDate.parse(endDate);
 
@@ -64,8 +64,8 @@ public class ReportController {
     @GetMapping("/export/csv")
     @Operation(summary = "Export ledger statement in raw CSV format")
     public ResponseEntity<byte[]> exportCSV(
-            @RequestParam String startDate,
-            @RequestParam String endDate) {
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate) {
         LocalDate start = LocalDate.parse(startDate);
         LocalDate end = LocalDate.parse(endDate);
 

@@ -12,13 +12,7 @@ import {
 import api from '../services/api';
 
 const Goals = () => {
-  const [goals, setGoals] = useState([
-    { id: 1, name: 'Emergency Fund', target: 100000, current: 80000, date: '2026-12-31', status: 'IN_PROGRESS' },
-    { id: 2, name: 'Premium Laptop', target: 150000, current: 45000, date: '2026-10-15', status: 'IN_PROGRESS' },
-    { id: 3, name: 'Sports Commute Bike', target: 200000, current: 150000, date: '2027-03-01', status: 'IN_PROGRESS' },
-    { id: 4, name: 'European Vacation', target: 300000, current: 300000, date: '2026-06-30', status: 'COMPLETED' },
-    { id: 5, name: 'Higher Education Vault', target: 500000, current: 120000, date: '2028-09-01', status: 'IN_PROGRESS' },
-  ]);
+  const [goals, setGoals] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContribOpen, setIsContribOpen] = useState(false);
@@ -33,15 +27,24 @@ const Goals = () => {
   });
   const [contribAmount, setContribAmount] = useState('');
 
+  const loadGoals = async () => {
+    try {
+      const response = await api.get('/goals');
+      const mapped = response.data.map(g => ({
+        id: g.id,
+        name: g.name,
+        target: parseFloat(g.targetAmount),
+        current: parseFloat(g.currentAmount),
+        date: g.targetDate,
+        status: g.status
+      }));
+      setGoals(mapped);
+    } catch (err) {
+      console.warn('API connection refused. Operating locally.');
+    }
+  };
+
   useEffect(() => {
-    const loadGoals = async () => {
-      try {
-        const response = await api.get('/goals');
-        setGoals(response.data);
-      } catch (err) {
-        console.warn('API connection refused. Operating locally.');
-      }
-    };
     loadGoals();
   }, []);
 
@@ -64,25 +67,13 @@ const Goals = () => {
     const amountNum = parseFloat(contribAmount);
     if (!amountNum || isNaN(amountNum)) return;
 
-    const newCurrent = selectedGoal.current + amountNum;
-    const isCompleted = newCurrent >= selectedGoal.target;
-
     try {
       await api.put(`/goals/${selectedGoal.id}/contribute`, { amount: amountNum });
-    } catch (err) {}
-
-    setGoals(
-      goals.map((g) =>
-        g.id === selectedGoal.id
-          ? {
-              ...g,
-              current: newCurrent,
-              status: isCompleted ? 'COMPLETED' : 'IN_PROGRESS',
-            }
-          : g
-      )
-    );
-    setIsContribOpen(false);
+      await loadGoals();
+      setIsContribOpen(false);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleCreateGoal = async (e) => {
@@ -92,21 +83,20 @@ const Goals = () => {
     if (!newGoal.name || !targetNum) return;
 
     const payload = {
-      id: Date.now(),
       name: newGoal.name,
-      target: targetNum,
-      current: currentNum,
-      date: newGoal.date || new Date().toISOString().split('T')[0],
-      status: currentNum >= targetNum ? 'COMPLETED' : 'IN_PROGRESS',
+      targetAmount: targetNum,
+      currentAmount: currentNum,
+      targetDate: newGoal.date || new Date().toISOString().split('T')[0]
     };
 
     try {
       await api.post('/goals', payload);
-    } catch (err) {}
-
-    setGoals([...goals, payload]);
-    setIsModalOpen(false);
-    setNewGoal({ name: '', target: '', current: '0', date: '' });
+      await loadGoals();
+      setIsModalOpen(false);
+      setNewGoal({ name: '', target: '', current: '0', date: '' });
+    } catch (err) {
+      console.error('Failed to save goal to database:', err);
+    }
   };
 
   return (

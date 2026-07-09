@@ -31,8 +31,11 @@ const AuthLayout = () => {
       {/* Auth Card Container */}
       <div className="w-full max-w-md relative z-10 py-12">
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 shadow-xl mb-3.5">
-            <span className="text-white font-extrabold text-2xl">F</span>
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 shadow-xl mb-3.5 overflow-hidden">
+            <svg className="w-full h-full p-3.5" viewBox="0 0 60 60" fill="none">
+              <path d="M18 42 L28 32 L36 38 L45 24 M45 24 H37 M45 24 V32" stroke="#10b981" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 18 H38 M22 28 H32 M22 18 V46" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" />
+            </svg>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 gradient-text">
             FinTrack Pro

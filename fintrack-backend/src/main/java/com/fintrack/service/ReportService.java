@@ -131,7 +131,7 @@ public class ReportService {
                 table.addCell(cellType);
 
                 // Amount
-                String amountStr = "₹" + tx.getAmount().setScale(0, BigDecimal.ROUND_HALF_UP).toString();
+                String amountStr = "Rs." + tx.getAmount().setScale(0, java.math.RoundingMode.HALF_UP).toString();
                 Font amtFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, 
                         tx.getType() == TransactionType.INCOME ? new Color(16, 185, 129) : new Color(51, 65, 85));
                 PdfPCell cellAmt = new PdfPCell(new Paragraph(amountStr, amtFont));
@@ -165,18 +165,18 @@ public class ReportService {
 
             // Income total
             sumTable.addCell(createSummaryCell("Total Inflow:", sumLabelFont, Element.ALIGN_LEFT));
-            sumTable.addCell(createSummaryCell("₹" + totalIncome.setScale(0, BigDecimal.ROUND_HALF_UP).toString(), 
+            sumTable.addCell(createSummaryCell("Rs." + totalIncome.setScale(0, java.math.RoundingMode.HALF_UP).toString(), 
                     FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, new Color(16, 185, 129)), Element.ALIGN_RIGHT));
 
             // Expense total
             sumTable.addCell(createSummaryCell("Total Outflow:", sumLabelFont, Element.ALIGN_LEFT));
-            sumTable.addCell(createSummaryCell("₹" + totalExpense.setScale(0, BigDecimal.ROUND_HALF_UP).toString(), 
+            sumTable.addCell(createSummaryCell("Rs." + totalExpense.setScale(0, java.math.RoundingMode.HALF_UP).toString(), 
                     FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, new Color(244, 63, 94)), Element.ALIGN_RIGHT));
 
             // Balance total
             BigDecimal balance = totalIncome.subtract(totalExpense);
             sumTable.addCell(createSummaryCell("Net Surplus:", sumLabelFont, Element.ALIGN_LEFT));
-            sumTable.addCell(createSummaryCell("₹" + balance.setScale(0, BigDecimal.ROUND_HALF_UP).toString(), 
+            sumTable.addCell(createSummaryCell("Rs." + balance.setScale(0, java.math.RoundingMode.HALF_UP).toString(), 
                     sumValFont, Element.ALIGN_RIGHT));
 
             document.add(sumTable);
@@ -304,7 +304,7 @@ public class ReportService {
                .append("\"").append(tx.getDescription() != null ? tx.getDescription().replace("\"", "\"\"") : "").append("\",")
                .append(tx.getCategory().getName()).append(",")
                .append(tx.getType().name()).append(",")
-               .append(tx.getAmount().setScale(0, BigDecimal.ROUND_HALF_UP).toString())
+               .append("Rs.").append(tx.getAmount().setScale(0, java.math.RoundingMode.HALF_UP).toString())
                .append("\n");
         }
 

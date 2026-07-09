@@ -47,7 +47,7 @@ public class BudgetController {
     @PutMapping("/{id}")
     @Operation(summary = "Modify category budget limit value")
     public ResponseEntity<Budget> updateBudget(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody Map<String, BigDecimal> payload) {
         BigDecimal limitAmount = payload.get("limitAmount");
         if (limitAmount == null || limitAmount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -58,7 +58,7 @@ public class BudgetController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete category budget limits")
-    public ResponseEntity<MessageResponse> deleteBudget(@PathVariable Long id) {
+    public ResponseEntity<MessageResponse> deleteBudget(@PathVariable("id") Long id) {
         budgetService.deleteBudget(id);
         return ResponseEntity.ok(new MessageResponse("Budget limits deleted successfully!"));
     }

@@ -1,5 +1,7 @@
 package com.fintrack.service;
 
+import com.fintrack.dto.CashFlowChartDTO;
+import com.fintrack.dto.CategoryBreakdownDTO;
 import com.fintrack.dto.DashboardStatsDTO;
 import com.fintrack.entity.Goal;
 import com.fintrack.entity.TransactionType;
@@ -10,7 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class DashboardService {
@@ -56,11 +61,44 @@ public class DashboardService {
 
         BigDecimal balance = income.subtract(expense);
 
+        // Category Breakdown
+        List<Object[]> categorySums = transactionRepository.sumAmountByUserAndTypeAndDateBetweenGroupByCategory(
+                user, TransactionType.EXPENSE, start, end);
+        List<CategoryBreakdownDTO> categoryBreakdown = new ArrayList<>();
+        for (Object[] row : categorySums) {
+            String catName = (String) row[0];
+            BigDecimal totalAmt = (BigDecimal) row[1];
+            String color = (String) row[2];
+            categoryBreakdown.add(CategoryBreakdownDTO.builder()
+                    .name(catName)
+                    .value(totalAmt)
+                    .color(color)
+                    .build());
+        }
+
+        // Cashflow Trends (Last 7 Days)
+        LocalDate today = LocalDate.now();
+        List<CashFlowChartDTO> cashFlowTrend = new ArrayList<>();
+        for (int i = 6; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
+            
+            BigDecimal dayInc = transactionRepository.sumAmountByUserAndTypeAndDate(user, TransactionType.INCOME, date);
+            if (dayInc == null) dayInc = BigDecimal.ZERO;
+            
+            BigDecimal dayExp = transactionRepository.sumAmountByUserAndTypeAndDate(user, TransactionType.EXPENSE, date);
+            if (dayExp == null) dayExp = BigDecimal.ZERO;
+            
+            String dayName = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
+            cashFlowTrend.add(new CashFlowChartDTO(dayName, dayInc, dayExp));
+        }
+
         return DashboardStatsDTO.builder()
                 .income(income)
                 .expense(expense)
                 .savings(savings)
                 .balance(balance)
+                .categoryBreakdown(categoryBreakdown)
+                .cashFlowTrend(cashFlowTrend)
                 .build();
     }
 }

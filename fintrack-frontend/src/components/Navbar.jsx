@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -17,35 +18,83 @@ import {
 const Navbar = ({ onMenuClick, title }) => {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'warning',
-      message: 'Rent budget has reached 85% of limit!',
-      time: '10m ago',
-      read: false,
-    },
-    {
-      id: 2,
-      type: 'success',
-      message: 'Emergency Fund goal is 100% complete! Great job!',
-      time: '2h ago',
-      read: false,
-    },
-    {
-      id: 3,
-      type: 'info',
-      message: 'Monthly budget has been initialized for July.',
-      time: '1d ago',
-      read: true,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  // Fetch real-time alerts and notifications from budgets and goals status
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchRealtimeAlerts = async () => {
+      try {
+        const alertsList = [];
+        
+        // 1. Fetch budgets status and trigger warnings/over-limit alerts
+        const budgetsResponse = await api.get('/budgets/status');
+        const budgets = budgetsResponse.data || [];
+        budgets.forEach((b, idx) => {
+          const limit = Number(b.limitAmount) || 0;
+          const spent = Number(b.currentExpense) || 0;
+          if (limit > 0) {
+            const percentage = (spent / limit) * 100;
+            if (percentage >= 100) {
+              alertsList.push({
+                id: `b-over-${b.id || idx}`,
+                type: 'warning',
+                message: `Alert: ${b.categoryName} budget has exceeded 100% limit! (${Math.round(percentage)}% spent)`,
+                time: 'Just now',
+                read: false,
+              });
+            } else if (percentage >= 85) {
+              alertsList.push({
+                id: `b-warn-${b.id || idx}`,
+                type: 'warning',
+                message: `Warning: ${b.categoryName} budget has reached ${Math.round(percentage)}% of limit!`,
+                time: 'Just now',
+                read: false,
+              });
+            }
+          }
+        });
+
+        // 2. Fetch savings goals status and trigger completion alerts
+        const goalsResponse = await api.get('/goals');
+        const goals = goalsResponse.data || [];
+        goals.forEach((g, idx) => {
+          const target = Number(g.targetAmount) || 0;
+          const current = Number(g.currentAmount) || 0;
+          if (target > 0) {
+            const pct = (current / target) * 100;
+            if (pct >= 100) {
+              alertsList.push({
+                id: `g-done-${g.id || idx}`,
+                type: 'success',
+                message: `Congratulations! Your ${g.name} goal is 100% complete!`,
+                time: 'Just now',
+                read: false,
+              });
+            }
+          }
+        });
+
+        setNotifications(alertsList);
+      } catch (err) {
+        console.warn("Failed to load realtime alerts:", err);
+      }
+    };
+
+    fetchRealtimeAlerts();
+    
+    // Poll for changes every 30 seconds
+    const interval = setInterval(fetchRealtimeAlerts, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Close menus on click outside
   useEffect(() => {
@@ -68,7 +117,7 @@ const Navbar = ({ onMenuClick, title }) => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between w-full px-6 py-4 bg-slate-50/50 dark:bg-slate-950/50 backdrop-blur-glass border-b border-slate-200/40 dark:border-slate-800/40">
+    <header className="sticky top-0 z-[100] flex items-center justify-between w-full px-6 py-4 bg-white dark:bg-slate-950 border-b border-slate-200/40 dark:border-slate-800/40 shadow-sm">
       {/* Page Title & Mobile Menu toggle */}
       <div className="flex items-center space-x-3">
         <button
@@ -112,7 +161,7 @@ const Navbar = ({ onMenuClick, title }) => {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-3 w-80 lg:w-96 rounded-2xl glass-card overflow-hidden shadow-2xl z-50">
+            <div className="absolute right-0 mt-3 w-80 lg:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 overflow-hidden shadow-2xl z-[100]">
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200/50 dark:border-slate-800/50 bg-slate-100/30 dark:bg-slate-900/30">
                 <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Alerts & Notifications</span>
                 {unreadCount > 0 && (
@@ -163,8 +212,12 @@ const Navbar = ({ onMenuClick, title }) => {
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center space-x-2 pl-2 pr-1.5 py-1.5 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-900/50 transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-              {user?.username ? user.username.substring(0, 2).toUpperCase() : 'FT'}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                user?.username ? user.username.substring(0, 2).toUpperCase() : 'FT'
+              )}
             </div>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 hidden md:inline truncate max-w-[100px]">
               {user?.username || 'Guest'}
@@ -173,7 +226,7 @@ const Navbar = ({ onMenuClick, title }) => {
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-3 w-56 rounded-2xl glass-card overflow-hidden shadow-2xl z-50">
+            <div className="absolute right-0 mt-3 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 overflow-hidden shadow-2xl z-[100]">
               <div className="px-4 py-3 bg-slate-100/30 dark:bg-slate-900/30 border-b border-slate-200/50 dark:border-slate-800/50">
                 <p className="text-xs text-slate-400">Signed in as</p>
                 <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{user?.email || 'guest@fintrack.pro'}</p>
@@ -182,7 +235,7 @@ const Navbar = ({ onMenuClick, title }) => {
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    // navigate to profile page
+                    navigate('/profile');
                   }}
                   className="flex items-center w-full px-3 py-2 text-sm font-semibold rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-900/50 transition-colors"
                 >

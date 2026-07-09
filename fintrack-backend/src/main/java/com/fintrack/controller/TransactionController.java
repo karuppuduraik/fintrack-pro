@@ -30,13 +30,13 @@ public class TransactionController {
     @GetMapping
     @Operation(summary = "Get paginated, filtered transaction ledger")
     public ResponseEntity<Page<Transaction>> getTransactions(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) TransactionType type,
-            @RequestParam(required = false, defaultValue = "ALL") String category,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "date") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "type", required = false) TransactionType type,
+            @RequestParam(name = "category", required = false, defaultValue = "ALL") String category,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sortBy", defaultValue = "date") String sortBy,
+            @RequestParam(name = "sortDir", defaultValue = "DESC") String sortDir) {
 
         Sort sort = sortDir.equalsIgnoreCase("ASC") 
                 ? Sort.by(sortBy).ascending() 
@@ -57,7 +57,7 @@ public class TransactionController {
     @PutMapping("/{id}")
     @Operation(summary = "Modify a transaction record")
     public ResponseEntity<Transaction> updateTransaction(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody TransactionRequest request) {
         Transaction transaction = transactionService.updateTransaction(id, request);
         return ResponseEntity.ok(transaction);
@@ -65,7 +65,7 @@ public class TransactionController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove a transaction record")
-    public ResponseEntity<MessageResponse> deleteTransaction(@PathVariable Long id) {
+    public ResponseEntity<MessageResponse> deleteTransaction(@PathVariable("id") Long id) {
         transactionService.deleteTransaction(id);
         return ResponseEntity.ok(new MessageResponse("Transaction deleted successfully!"));
     }

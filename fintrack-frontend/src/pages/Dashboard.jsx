@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import api from '../services/api';
 import { useAuth } from "../context/AuthContext";
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
 
@@ -41,84 +42,63 @@ const [budgets, setBudgets] = useState([]);
     date: new Date().toISOString().split('T')[0],
   });
 
-  // Load from API if backend is running
+  const fetchDashboardData = async () => {
+    try {
+      const statsRes = await api.get('/dashboard/stats');
+      setStats(statsRes.data);
+      const txRes = await api.get('/transactions?size=3');
+      setTransactions(txRes.data.content);
+      const budgetRes = await api.get('/budgets/status');
+      setBudgets(budgetRes.data);
+    } catch (err) {
+      console.warn('Backend offline or not configured. Operating in local sandbox mode.');
+    }
+  };
+
+  // Load from API on mount
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const statsRes = await api.get('/dashboard/stats');
-        setStats(statsRes.data);
-        const txRes = await api.get('/transactions?size=5');
-        setTransactions(txRes.data.content);
-        const budgetRes = await api.get('/budgets/status');
-        setBudgets(budgetRes.data);
-      } catch (err) {
-        console.warn('Backend offline or not configured. Operating in local sandbox mode.');
-      }
-    };
     fetchDashboardData();
   }, []);
 
   // Format currency
   const formatCurrency = (val) => {
+    const num = parseFloat(val) || 0;
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(val);
+    }).format(num);
   };
 
-  const chartData = [];
+  const chartData = (stats.cashFlowTrend || []).map(item => ({
+    name: item.name || '',
+    Income: parseFloat(item.income) || 0,
+    Expense: parseFloat(item.expense) || 0
+  }));
 
   // Pie chart breakdown
-  const pieData = [];
+  const pieData = (stats.categoryBreakdown || [])
+    .map(item => ({
+      name: item.name || 'Uncategorized',
+      value: parseFloat(item.value) || 0,
+      color: item.color || '#4f46e5'
+    }))
+    .filter(item => item.value > 0);
 
-  const handleAddSubmit = (e) => {
-    e.preventDefault();
+  const handleAddSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const amountNum = parseFloat(newTx.amount);
     if (!amountNum || isNaN(amountNum)) return;
 
-    const tx = {
-      id: Date.now(),
+    const payload = {
       type: newTx.type,
       amount: amountNum,
-      category: newTx.category,
+      categoryName: newTx.category,
       date: newTx.date,
       description: newTx.description || `${newTx.category} Transaction`,
     };
 
-    // Update local state
-    setTransactions([tx, ...transactions]);
-    
-    // Update summary counters
-    setStats(prev => {
-      const isInc = newTx.type === 'INCOME';
-      const incDiff = isInc ? amountNum : 0;
-      const expDiff = !isInc ? amountNum : 0;
-      const newInc = prev.income + incDiff;
-      const newExp = prev.expense + expDiff;
-      return {
-        income: newInc,
-        expense: newExp,
-        balance: newInc - newExp,
-        savings: prev.savings,
-      };
-    });
-
-    // Update budgets list if expense
-    if (newTx.type === 'EXPENSE') {
-      setBudgets(prev =>
-        prev.map(b => {
-          if (b.category.toLowerCase() === newTx.category.toLowerCase()) {
-            return { ...b, spent: b.spent + amountNum };
-          }
-          return b;
-        })
-      );
-    }
-
-    // Try posting to backend
-    api.post('/transactions', tx).catch(() => {});
-
+    // Close modal and reset form instantly for zero-latency feel
     setIsAddModalOpen(false);
     setNewTx({
       type: 'EXPENSE',
@@ -127,6 +107,16 @@ const [budgets, setBudgets] = useState([]);
       description: '',
       date: new Date().toISOString().split('T')[0],
     });
+
+    try {
+      // Commit transaction to backend in background
+      await api.post('/transactions', payload);
+      
+      // Silently sync the latest database aggregates to the dashboard
+      await fetchDashboardData();
+    } catch (error) {
+      console.error("Failed to commit transaction:", error);
+    }
   };
 
   return (
@@ -209,33 +199,45 @@ const [budgets, setBudgets] = useState([]);
               <p className="text-xs text-slate-400">Weekly activity trends</p>
             </div>
           </div>
-          <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    color: '#fff'
-                  }}
-                />
-                <Area type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorIncome)" />
-                <Area type="monotone" dataKey="Expense" stroke="#f43f5e" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpense)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex-1 min-h-0 relative flex items-center justify-center">
+            {chartData.some(d => d.Income > 0 || d.Expense > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '12px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Area type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorIncome)" />
+                  <Area type="monotone" dataKey="Expense" stroke="#f43f5e" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpense)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-brand-600 dark:text-brand-400 flex items-center justify-center shadow-sm">
+                  <TrendingUpRounded className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-350">No Activity Recorded Yet</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 max-w-[240px]">Create an income or expense transaction to visualize your weekly cashflow trend.</p>
+                </div>
+              </div>
+            )}
           </div>
         </GlassCard>
 
@@ -246,50 +248,66 @@ const [budgets, setBudgets] = useState([]);
             <p className="text-xs text-slate-400">July categorization</p>
           </div>
           <div className="flex-1 relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => formatCurrency(value)}
-                  contentStyle={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    color: '#fff'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total spent</span>
-              <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{formatCurrency(stats.expense)}</span>
-            </div>
+            {pieData.length > 0 && pieData.some(d => d.value > 0) ? (
+              <>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => formatCurrency(value)}
+                      contentStyle={{
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '12px',
+                        color: '#fff'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total spent</span>
+                  <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{formatCurrency(stats.expense)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-sm">
+                  <CategoryRounded className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-350">No Expense Data</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 max-w-[200px]">Your monthly expense categorization will appear here once logged.</p>
+                </div>
+              </div>
+            )}
           </div>
           {/* Pie Legends */}
-          <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200/30 dark:border-slate-800/40 pt-4">
-            {pieData.slice(0, 5).map((e) => (
-              <div key={e.name} className="flex items-center justify-center space-x-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: e.color }} />
-                <span>{e.name}</span>
+          {pieData.length > 0 && pieData.some(d => d.value > 0) && (
+            <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200/30 dark:border-slate-800/40 pt-4">
+              {pieData.slice(0, 5).map((e) => (
+                <div key={e.name} className="flex items-center justify-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: e.color }} />
+                  <span>{e.name}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-center space-x-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
+                <span>Others</span>
               </div>
-            ))}
-            <div className="flex items-center justify-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
-              <span>Others</span>
             </div>
-          </div>
+          )}
         </GlassCard>
       </div>
 
@@ -302,25 +320,28 @@ const [budgets, setBudgets] = useState([]);
               <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Category Budgets</h4>
               <p className="text-xs text-slate-400">Current limits tracker</p>
             </div>
-            <span className="text-xs font-semibold text-brand-500 flex items-center hover:underline cursor-pointer">
+            <Link to="/budgets" className="text-xs font-semibold text-brand-500 flex items-center hover:underline">
               Adjust <ArrowForwardRounded className="ml-1 h-3.5 w-3.5" />
-            </span>
+            </Link>
           </div>
 
           <div className="space-y-4">
             {budgets.map((b) => {
-              const pct = Math.min((b.spent / b.limit) * 100, 100);
-              const isOver = b.spent >= b.limit;
-              const isClose = b.spent >= b.limit * 0.8 && !isOver;
+              const limit = parseFloat(b.limitAmount) || 0;
+              const spent = parseFloat(b.spent) || 0;
+              const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+              const isOver = spent >= limit && limit > 0;
+              const isClose = limit > 0 && spent >= limit * 0.8 && !isOver;
+              const budgetColor = b.colorCode || '#4f46e5';
 
               return (
                 <div key={b.category} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{b.category}</span>
                     <div className="space-x-1 font-bold text-slate-500 dark:text-slate-400">
-                      <span className="text-slate-800 dark:text-slate-100">{formatCurrency(b.spent)}</span>
+                      <span className="text-slate-800 dark:text-slate-100">{formatCurrency(spent)}</span>
                       <span>/</span>
-                      <span>{formatCurrency(b.limit)}</span>
+                      <span>{formatCurrency(limit)}</span>
                     </div>
                   </div>
                   {/* Progress Line */}
@@ -330,7 +351,7 @@ const [budgets, setBudgets] = useState([]);
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.8, ease: 'easeOut' }}
                       className="h-full rounded-full"
-                      style={{ backgroundColor: b.color }}
+                      style={{ backgroundColor: budgetColor }}
                     />
                   </div>
                   {/* Warnings */}
@@ -357,13 +378,13 @@ const [budgets, setBudgets] = useState([]);
               <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">Recent Transactions</h4>
               <p className="text-xs text-slate-400">Latest ledger entries</p>
             </div>
-            <span className="text-xs font-semibold text-brand-500 flex items-center hover:underline cursor-pointer">
+            <Link to="/transactions" className="text-xs font-semibold text-brand-500 flex items-center hover:underline">
               View All <ArrowForwardRounded className="ml-1 h-3.5 w-3.5" />
-            </span>
+            </Link>
           </div>
 
           <div className="divide-y divide-slate-150/40 dark:divide-slate-800/40">
-            {transactions.slice(0, 5).map((t) => (
+            {transactions.slice(0, 3).map((t) => (
               <div key={t.id} className="flex items-center justify-between py-3 group">
                 <div className="flex items-center space-x-3.5">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
@@ -378,7 +399,7 @@ const [budgets, setBudgets] = useState([]);
                       {t.description}
                     </p>
                     <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-semibold">
-                      <span className="bg-slate-200/50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md uppercase">{t.category}</span>
+                      <span className="bg-slate-200/50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md uppercase">{t.category?.name || 'Uncategorized'}</span>
                       <span>•</span>
                       <span>{t.date}</span>
                     </div>
@@ -415,7 +436,7 @@ const [budgets, setBudgets] = useState([]);
                 </button>
               </div>
 
-              <form onSubmit={handleAddSubmit} className="space-y-4">
+              <div className="space-y-4">
                 {/* Transaction Type */}
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Type</label>
@@ -513,10 +534,10 @@ const [budgets, setBudgets] = useState([]);
                   />
                 </div>
 
-                <Button type="submit" className="w-full">
+                <Button onClick={handleAddSubmit} className="w-full">
                   Commit Transaction
                 </Button>
-              </form>
+              </div>
             </motion.div>
           </div>
         )}

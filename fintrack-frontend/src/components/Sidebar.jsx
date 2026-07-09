@@ -10,7 +10,8 @@ import {
   AssessmentRounded,
   PersonRounded,
   LogoutRounded,
-  CloseRounded
+  CloseRounded,
+  SupervisorAccountRounded
 } from '@mui/icons-material';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -24,6 +25,10 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Goals', path: '/goals', icon: TrackChangesRounded },
     { name: 'Reports', path: '/reports', icon: AssessmentRounded },
   ];
+
+  if (user?.role === 'ADMIN') {
+    menuItems.push({ name: 'Admin Panel', path: '/admin', icon: SupervisorAccountRounded });
+  }
 
   const handleLogout = () => {
     logout();
@@ -100,8 +105,12 @@ const Sidebar = ({ isOpen, onClose }) => {
         {/* User Profile Summary & Logout */}
         <div className="p-4 border-t border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/20">
           <div className="flex items-center space-x-3 mb-3 p-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-sm shadow">
-              {user?.username ? user.username.substring(0, 2).toUpperCase() : 'FT'}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-sm shadow overflow-hidden">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                user?.username ? user.username.substring(0, 2).toUpperCase() : 'FT'
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate text-slate-800 dark:text-slate-200">

@@ -48,7 +48,8 @@ public class AuthController {
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getEmail(),
-                userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "")
+                userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", ""),
+                userDetails.getProfilePicture()
         );
 
         return ResponseEntity.ok(new JwtResponse(jwt, userResponse));
@@ -74,6 +75,7 @@ public class AuthController {
                 .email(signUpRequest.getEmail())
                 .password(encoder.encode(signUpRequest.getPassword()))
                 .role("USER")
+                .profilePicture(signUpRequest.getProfilePicture())
                 .build();
 
         userRepository.save(user);

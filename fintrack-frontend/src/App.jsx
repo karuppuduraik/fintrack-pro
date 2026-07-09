@@ -14,6 +14,8 @@ import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Goals from './pages/Goals';
 import Reports from './pages/Reports';
+import AdminPanel from './pages/AdminPanel';
+import Profile from './pages/Profile';
 
 // Route guards
 const ProtectedRoute = ({ children }) => {
@@ -28,6 +30,20 @@ const ProtectedRoute = ({ children }) => {
   }
 
   return isAuthenticated ? children : <Navigate to="/login" replace />;
+};
+
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
+
+  return isAuthenticated && user?.role === 'ADMIN' ? children : <Navigate to="/dashboard" replace />;
 };
 
 const PublicRoute = ({ children }) => {
@@ -76,6 +92,12 @@ function App() {
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/goals" element={<Goals />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <AdminPanel />
+                </AdminRoute>
+              } />
+              <Route path="/profile" element={<Profile />} />
             </Route>
 
             {/* Redirects */}
