@@ -37,9 +37,11 @@ com\fintrack\exception\GlobalExceptionHandler.class
 com\fintrack\service\BudgetService.class
 com\fintrack\entity\Goal$GoalBuilder.class
 com\fintrack\dto\ForgotPasswordRequest.class
+com\fintrack\dto\ProfileUpdateRequest.class
 com\fintrack\dto\CashFlowChartDTO.class
 com\fintrack\entity\User.class
 com\fintrack\controller\GoalController.class
+com\fintrack\controller\ProfileController.class
 com\fintrack\entity\Budget$BudgetBuilder.class
 com\fintrack\dto\GoalRequest.class
 com\fintrack\service\UserService.class

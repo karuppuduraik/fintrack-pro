@@ -3,9 +3,9 @@ spring:
     name: fintrack-backend
 
   datasource:
-    url: jdbc:mysql://thomas.proxy.rlwy.net:45025/railway?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: OGVwneHsovArSDiTpmGLIDVSgQUBCTpt
+    url: ${DATABASE_URL:jdbc:mysql://thomas.proxy.rlwy.net:45025/railway?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:OGVwneHsovArSDiTpmGLIDVSgQUBCTpt}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -19,10 +19,10 @@ spring:
         format_sql: true
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 fintrack:
   security:
     jwt:
-      secret: dGhlLXByZW1pdW0tcHJvZHVjdGlvbi1yZWFkeS1maW50cmFjay1wcm8tc2VjdXJpdHktamt0LXNlY3JldC1rZXktdmFsdWUtMjAyNg==
-      expiration-ms: 86400000
+      secret: ${JWT_SECRET:dGhlLXByZW1pdW0tcHJvZHVjdGlvbi1yZWFkeS1maW50cmFjay1wcm8tc2VjdXJpdHktamt0LXNlY3JldC1rZXktdmFsdWUtMjAyNg==}
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
